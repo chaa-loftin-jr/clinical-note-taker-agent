@@ -1,0 +1,26 @@
+id: canine_gdv_er
+description: >
+  Emergency presentation of suspected gastric dilatation-volvulus (GDV/bloat)
+  in a large-breed dog. Synthetic transcript — not a real patient encounter.
+species: canine
+visit_type: emergency
+transcript: |
+  Vet: When did you first notice the abdomen looked distended?
+  Owner: About an hour ago, right after dinner. He's been retching but
+    nothing is coming up, and he seems really restless and won't lie down.
+  Vet: Okay, his abdomen is tympanic and he's tachycardic at 160. We need to
+    get an X-ray right away to check for GDV and get him stabilized with IV
+    fluids. If it's confirmed, he'll need emergency surgery tonight.
+  Owner: Is this life-threatening?
+  Vet: Yes, GDV can be fatal within hours without treatment, which is why
+    we're moving quickly. I'll come find you as soon as we have the X-ray
+    results.
+
+# No verified codes exist yet for this table (see tools/snomed_lookup.py),
+# so this case doesn't assert on a specific code — only that the output
+# doesn't silently drop the urgency of the finding.
+must_include_diagnosis_codes: []
+must_include_instruction_keywords:
+  - "emergency"
+forbidden_phrases:
+  - "nothing to worry about"
