@@ -26,4 +26,5 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 USER appuser
 
-CMD ["python", "-c", "import clinical_note_taker; print(clinical_note_taker.__version__)"]
+ENTRYPOINT ["clinical-note-taker"]
+CMD ["--help"]
