@@ -1,10 +1,19 @@
 from pathlib import Path
 
+from dotenv import load_dotenv
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 AGENT_WORKSPACE = PACKAGE_ROOT / "resources" / "agent_workspace"
+
+# pydantic-settings' env_file loading below only populates *this* model's own
+# (CNT_-prefixed) fields — it never touches os.environ. But the Claude Agent
+# SDK spawns the bundled Claude Code CLI as a subprocess that inherits
+# os.environ directly, so ANTHROPIC_API_KEY (unprefixed, not one of our
+# Settings fields) needs to actually land there or the subprocess silently
+# fails to authenticate. load_dotenv() is a no-op if .env doesn't exist.
+load_dotenv()
 
 
 class Settings(BaseSettings):
