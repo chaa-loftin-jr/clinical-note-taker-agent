@@ -9,11 +9,12 @@ calls), and an **eval harness** (automated output grading) as first-class
 pieces rather than one large prompt.
 
 > [!IMPORTANT]
-> **Project status: early scaffold.** The orchestration, schemas, tools,
-> and skills are wired up and tested, but `ClinicalNoteAgent.generate()`
-> intentionally raises `NotImplementedError` — the actual prompting/parsing
-> logic hasn't been built yet. See [Known Limitations & Roadmap](#known-limitations--roadmap)
-> before assuming any generated output is real. Also see [Domain Scope &
+> **Project status: core pipeline works, but output isn't trustworthy yet.**
+> `ClinicalNoteAgent.generate()` produces real, schema-validated notes end to
+> end. The gap is what's *in* them: SNOMED CT codes are unverified, there's
+> no malformed-output handling, and eval coverage is minimal. See
+> [Known Limitations & Roadmap](#known-limitations--roadmap) before treating
+> any generated output as reliable. Also see [Domain Scope &
 > Terminology](#domain-scope--terminology): this project targets veterinary
 > medicine, not human medicine, and HIPAA does not apply.
 >
@@ -132,22 +133,22 @@ Owner: About an hour ago, right after dinner...
 EOF
 
 # Structured JSON (default) — matches ClinicalNoteOutput in models.py
-uv run clinical-note-taker generate transcript.txt \
+uv run clinical-note-taker transcript.txt \
   --encounter-id demo-001 \
   --species canine \
   --visit-type emergency
 
 # Human-readable Markdown instead
-uv run clinical-note-taker generate transcript.txt \
+uv run clinical-note-taker transcript.txt \
   --encounter-id demo-001 \
   --species canine \
   --format markdown
 ```
 
-> Today, this will run the full pipeline (skills load, tools are wired) and
-> then raise `NotImplementedError` from `ClinicalNoteAgent.generate()` — the
-> prompting/output-parsing logic itself is the next piece to build. See
-> [Known Limitations & Roadmap](#known-limitations--roadmap).
+> There's only one command today, so Typer doesn't require (or accept) a
+> subcommand name — just `clinical-note-taker <transcript path> [options]`.
+> Requires `ANTHROPIC_API_KEY` (or an already-authenticated `claude` CLI) —
+> see [Configuration](#configuration).
 
 ## Development workflow
 
@@ -164,8 +165,9 @@ uv run clinical-note-taker generate transcript.txt \
 | `uv run python -m evals.run_evals` | Run the eval harness against `evals/cases/*.yaml` |
 | `pre-commit run --all-files` | Run the same lint/format checks locally, on demand |
 
-All of the above (except the eval harness, which needs the generation logic
-to actually score anything) run automatically in CI on every pull request —
+All of the above (except the eval harness, which makes real, billed model
+calls and needs `ANTHROPIC_API_KEY` — deliberately not run automatically in
+CI) run automatically in CI on every pull request —
 see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Configuration
@@ -190,7 +192,7 @@ docker build -t clinical-note-taker .
 docker run --rm \
   -v "$(pwd)/transcript.txt:/data/transcript.txt:ro" \
   --env-file .env \
-  clinical-note-taker generate /data/transcript.txt --encounter-id demo-001 --species canine
+  clinical-note-taker /data/transcript.txt --encounter-id demo-001 --species canine
 ```
 
 The image runs as a non-root user and only ships the runtime dependencies
@@ -216,10 +218,11 @@ terms are used precisely and matter for anyone extending this:
 
 ## Known limitations & roadmap
 
-- **`ClinicalNoteAgent.generate()` is not implemented.** It wires up the
-  full options/tools/skills pipeline and calls Claude, but raises
-  `NotImplementedError` instead of parsing a response — there's no output
-  contract for the skills to target yet.
+- **No malformed-output handling.** The model must call `submit_clinical_note`
+  as its final action; if it doesn't (or the arguments fail schema
+  validation), `generate()` raises `NoteGenerationError`/`ValueError` rather
+  than retrying or repairing. Deliberately out of scope for now — see the
+  "Handle malformed or incomplete model output gracefully" issue.
 - **SNOMED CT codes are unverified.** `tools/snomed_lookup.py` ships a small,
   hand-picked table of common ER presentations with `concept_id=None` —
   real IDs require registering with the [VTSL browser](https://vtsl.vetmed.vt.edu/)
