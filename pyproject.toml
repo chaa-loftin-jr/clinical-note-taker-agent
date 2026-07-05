@@ -1,12 +1,23 @@
 [project]
 name = "clinical-note-taker"
 version = "0.1.0"
-description = "Clinical note-taker agent (scaffold — implementation pending)."
+description = "Privacy-conscious AI agent that turns veterinary ER encounter transcripts into SOAP notes, SNOMED CT coding suggestions, follow-ups, and client instructions."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.11"
 authors = [{ name = "Chaa Loftin" }]
-dependencies = []
+dependencies = [
+    "claude-agent-sdk>=0.2.110",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "typer>=0.13",
+    "rich>=13.9",
+    "anyio>=4.6",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+clinical-note-taker = "clinical_note_taker.cli:app"
 
 [build-system]
 requires = ["hatchling"]
@@ -19,6 +30,7 @@ packages = ["src/clinical_note_taker"]
 dev = [
     "pytest>=8.3",
     "pytest-cov>=6.0",
+    "pytest-asyncio>=0.24",
     "ruff>=0.8",
     "mypy>=1.13",
     "bandit>=1.8",
@@ -39,9 +51,10 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["src/clinical_note_taker"]
 
 [tool.bandit]
-exclude_dirs = ["tests"]
+exclude_dirs = ["tests", "evals"]
