@@ -16,6 +16,9 @@ pieces rather than one large prompt.
 > before assuming any generated output is real. Also see [Domain Scope &
 > Terminology](#domain-scope--terminology): this project targets veterinary
 > medicine, not human medicine, and HIPAA does not apply.
+>
+> See [ROADMAP.md](ROADMAP.md) for the project vision, milestones, and
+> where this is headed.
 
 ## Table of contents
 
