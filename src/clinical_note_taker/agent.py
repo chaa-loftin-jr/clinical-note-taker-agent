@@ -105,9 +105,15 @@ def _find_submission(message: AssistantMessage) -> dict[str, object] | None:
     return None
 
 
-def _build_output(encounter: EncounterInput, submission: dict[str, object]) -> ClinicalNoteOutput:
+def _build_output(
+    encounter: EncounterInput, submission: dict[str, object], *, requires_clinician_review: bool
+) -> ClinicalNoteOutput:
     draft = ClinicalNoteDraft.model_validate(submission)
-    return ClinicalNoteOutput(encounter_id=encounter.encounter_id, **draft.model_dump())
+    return ClinicalNoteOutput(
+        encounter_id=encounter.encounter_id,
+        requires_clinician_review=requires_clinician_review,
+        **draft.model_dump(),
+    )
 
 
 class ClinicalNoteAgent:
@@ -127,6 +133,11 @@ class ClinicalNoteAgent:
                 if isinstance(message, AssistantMessage):
                     found = _find_submission(message)
                     if found is not None:
+                        if submission is not None:
+                            raise NoteGenerationError(
+                                f"Model called {SUBMIT_CLINICAL_NOTE_TOOL_NAME} more than "
+                                "once; expected exactly one submission."
+                            )
                         submission = found
 
         if submission is None:
@@ -134,4 +145,8 @@ class ClinicalNoteAgent:
                 f"Model completed its turn without calling {SUBMIT_CLINICAL_NOTE_TOOL_NAME}."
             )
 
-        return _build_output(encounter, submission)
+        return _build_output(
+            encounter,
+            submission,
+            requires_clinician_review=self._settings.require_clinician_review,
+        )

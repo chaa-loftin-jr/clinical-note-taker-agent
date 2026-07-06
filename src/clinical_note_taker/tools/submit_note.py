@@ -2,10 +2,12 @@
 
 This is the output contract: instead of parsing JSON out of free text (fragile
 — markdown fences, commentary, truncation), the model must call this tool
-with arguments matching `ClinicalNoteDraft`'s schema. Claude validates the
-call's arguments against that schema before it ever reaches our code, and
-`agent.py` reads the finished draft straight out of the resulting
-`ToolUseBlock.input` — no text parsing involved.
+with arguments matching `ClinicalNoteDraft`'s schema. The schema guides the
+model's tool call, but isn't a hard validation gate on its own — `agent.py`
+reads the finished draft straight out of the resulting `ToolUseBlock.input`
+and it's `ClinicalNoteDraft.model_validate()` (in `agent.py`'s
+`_build_output`) that actually enforces it, raising if the arguments don't
+conform. No text parsing involved either way.
 
 The tool implementation itself is intentionally a no-op beyond acknowledging
 receipt; it doesn't need to be stateful, and it isn't the thing that builds

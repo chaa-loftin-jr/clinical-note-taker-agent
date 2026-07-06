@@ -3,8 +3,9 @@ from pathlib import Path
 
 import anyio
 import typer
+from pydantic import ValidationError
 
-from .agent import ClinicalNoteAgent
+from .agent import ClinicalNoteAgent, NoteGenerationError
 from .config import get_settings
 from .models import EncounterInput
 from .rendering import render_markdown
@@ -40,7 +41,11 @@ def generate(
         visit_type=visit_type,
     )
     agent = ClinicalNoteAgent(get_settings())
-    result = anyio.run(agent.generate, encounter)
+    try:
+        result = anyio.run(agent.generate, encounter)
+    except (NoteGenerationError, ValidationError) as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1) from exc
 
     if output_format is OutputFormat.markdown:
         typer.echo(render_markdown(result))

@@ -90,15 +90,20 @@ def test_find_submission_extracts_matching_tool_call():
 
 
 def test_build_output_merges_encounter_id_with_draft():
-    output = _build_output(_encounter(), VALID_SUBMISSION)
+    output = _build_output(_encounter(), VALID_SUBMISSION, requires_clinician_review=True)
     assert output.encounter_id == "enc-1"
     assert output.soap_note.assessment == "Suspected gastroenteritis."
     assert output.requires_clinician_review is True
 
 
+def test_build_output_respects_requires_clinician_review_false():
+    output = _build_output(_encounter(), VALID_SUBMISSION, requires_clinician_review=False)
+    assert output.requires_clinician_review is False
+
+
 def test_build_output_rejects_invalid_submission():
     with pytest.raises(ValueError):
-        _build_output(_encounter(), {"soap_note": "not a dict"})
+        _build_output(_encounter(), {"soap_note": "not a dict"}, requires_clinician_review=True)
 
 
 class _FakeClient:
@@ -148,3 +153,44 @@ async def test_generate_returns_validated_output_on_submission(monkeypatch):
     output = await ClinicalNoteAgent(Settings()).generate(_encounter())
     assert output.encounter_id == "enc-1"
     assert output.soap_note.assessment == "Suspected gastroenteritis."
+
+
+async def test_generate_threads_require_clinician_review_setting(monkeypatch):
+    messages = [
+        AssistantMessage(
+            content=[
+                ToolUseBlock(
+                    id="1",
+                    name="mcp__clinical_tools__submit_clinical_note",
+                    input=VALID_SUBMISSION,
+                )
+            ],
+            model="claude",
+        )
+    ]
+    monkeypatch.setattr(agent_module, "ClaudeSDKClient", lambda options: _FakeClient(messages))
+
+    settings = Settings(require_clinician_review=False)
+    output = await ClinicalNoteAgent(settings).generate(_encounter())
+    assert output.requires_clinician_review is False
+
+
+async def test_generate_raises_on_duplicate_submission(monkeypatch):
+    submit_message = AssistantMessage(
+        content=[
+            ToolUseBlock(
+                id="1",
+                name="mcp__clinical_tools__submit_clinical_note",
+                input=VALID_SUBMISSION,
+            )
+        ],
+        model="claude",
+    )
+    monkeypatch.setattr(
+        agent_module,
+        "ClaudeSDKClient",
+        lambda options: _FakeClient([submit_message, submit_message]),
+    )
+
+    with pytest.raises(NoteGenerationError):
+        await ClinicalNoteAgent(Settings()).generate(_encounter())
