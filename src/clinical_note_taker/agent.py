@@ -6,7 +6,14 @@ species/specialties is a deliberate follow-up, not built here.
 Security/privacy note: the agent disables the SDK's default built-in
 toolset (`tools=[]`) — this process has no business running Bash or
 touching arbitrary files on disk. It's only given the specific in-process
-tools it needs (SNOMED CT lookup, client PII redaction) plus its skills.
+tools it needs (SNOMED CT lookup, client PII redaction, note submission)
+plus its skills.
+
+Output contract: the model doesn't return its answer as free text. It must
+call the `submit_clinical_note` tool exactly once, as its final action, with
+arguments matching `ClinicalNoteDraft`. We read the finished draft straight
+out of that tool call's arguments rather than parsing JSON out of prose —
+see tools/submit_note.py for why.
 """
 
 from __future__ import annotations
@@ -15,37 +22,59 @@ from claude_agent_sdk import (
     AssistantMessage,
     ClaudeAgentOptions,
     ClaudeSDKClient,
-    TextBlock,
+    ToolUseBlock,
     create_sdk_mcp_server,
 )
 
 from .config import AGENT_WORKSPACE, Settings, get_settings
-from .models import ClinicalNoteOutput, EncounterInput
-from .tools import pii_redaction_tool, snomed_lookup_tool
+from .models import ClinicalNoteDraft, ClinicalNoteOutput, EncounterInput
+from .tools import (
+    SUBMIT_CLINICAL_NOTE_TOOL_NAME,
+    pii_redaction_tool,
+    snomed_lookup_tool,
+    submit_clinical_note_tool,
+)
 
 SKILL_NAMES = ["soap-note-writer", "medical-billing-coder", "client-instructions-writer"]
 
-SYSTEM_PROMPT = """You are a clinical documentation assistant for a veterinary emergency room.
+_MCP_SERVER_NAME = "clinical_tools"
+_SUBMIT_TOOL_FULL_NAME = f"mcp__{_MCP_SERVER_NAME}__{SUBMIT_CLINICAL_NOTE_TOOL_NAME}"
+
+SYSTEM_PROMPT = f"""You are a clinical documentation assistant for a veterinary emergency room.
 You draft SOAP notes, suggest SNOMED CT (veterinary extension) diagnosis codes, propose
 follow-up actions, and write plain-language instructions for the client (the animal's owner)
 from an encounter transcript. You never fabricate findings, vitals, or history details that
 are not supported by the transcript, and you always flag your output as a draft that requires
 review by a licensed veterinarian. Use the snomed_lookup tool rather than recalling codes from
-memory, and never invent a numeric concept ID yourself."""
+memory, and never invent a numeric concept ID yourself.
+
+Once the SOAP note, billing codes, follow-up, and client instructions are all ready, call the
+{SUBMIT_CLINICAL_NOTE_TOOL_NAME} tool exactly once, as your final action, with the complete
+draft. Do not describe the note in your own text response — the tool call is the deliverable."""
+
+
+class NoteGenerationError(RuntimeError):
+    """Raised when the model completes its turn without submitting a note.
+
+    Deliberately not retried here — that's future work (see the "Handle
+    malformed or incomplete model output gracefully" issue). For now, a
+    missing submission fails loudly rather than returning nothing.
+    """
 
 
 def _build_options(settings: Settings) -> ClaudeAgentOptions:
     tools_server = create_sdk_mcp_server(
-        name="clinical_tools",
+        name=_MCP_SERVER_NAME,
         version="0.1.0",
-        tools=[snomed_lookup_tool, pii_redaction_tool],
+        tools=[snomed_lookup_tool, pii_redaction_tool, submit_clinical_note_tool],
     )
     return ClaudeAgentOptions(
         tools=[],
-        mcp_servers={"clinical_tools": tools_server},
+        mcp_servers={_MCP_SERVER_NAME: tools_server},
         allowed_tools=[
-            "mcp__clinical_tools__snomed_lookup",
-            "mcp__clinical_tools__pii_redaction",
+            f"mcp__{_MCP_SERVER_NAME}__snomed_lookup",
+            f"mcp__{_MCP_SERVER_NAME}__pii_redaction",
+            _SUBMIT_TOOL_FULL_NAME,
         ],
         skills=SKILL_NAMES,
         system_prompt=SYSTEM_PROMPT,
@@ -69,13 +98,26 @@ def _build_prompt(encounter: EncounterInput) -> str:
     )
 
 
-class ClinicalNoteAgent:
-    """Turns a veterinary ER encounter transcript into a structured note draft.
+def _find_submission(message: AssistantMessage) -> dict[str, object] | None:
+    for block in message.content:
+        if isinstance(block, ToolUseBlock) and block.name == _SUBMIT_TOOL_FULL_NAME:
+            return block.input
+    return None
 
-    v1 scaffold: orchestration wiring (options/tools/skills) is real and
-    testable; the prompting strategy and output-parsing contract are not
-    implemented yet, pending calibration against real (synthetic) transcripts.
-    """
+
+def _build_output(
+    encounter: EncounterInput, submission: dict[str, object], *, requires_clinician_review: bool
+) -> ClinicalNoteOutput:
+    draft = ClinicalNoteDraft.model_validate(submission)
+    return ClinicalNoteOutput(
+        encounter_id=encounter.encounter_id,
+        requires_clinician_review=requires_clinician_review,
+        **draft.model_dump(),
+    )
+
+
+class ClinicalNoteAgent:
+    """Turns a veterinary ER encounter transcript into a structured note draft."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
@@ -84,17 +126,27 @@ class ClinicalNoteAgent:
         options = _build_options(self._settings)
         prompt = _build_prompt(encounter)
 
-        raw_text = ""
+        submission: dict[str, object] | None = None
         async with ClaudeSDKClient(options=options) as client:
             await client.query(prompt)
             async for message in client.receive_response():
                 if isinstance(message, AssistantMessage):
-                    for block in message.content:
-                        if isinstance(block, TextBlock):
-                            raw_text += block.text
+                    found = _find_submission(message)
+                    if found is not None:
+                        if submission is not None:
+                            raise NoteGenerationError(
+                                f"Model called {SUBMIT_CLINICAL_NOTE_TOOL_NAME} more than "
+                                "once; expected exactly one submission."
+                            )
+                        submission = found
 
-        raise NotImplementedError(
-            "Output parsing into ClinicalNoteOutput is not implemented yet — the "
-            "SOAP/billing/instructions skills need a defined output contract first. "
-            f"Raw model response was:\n{raw_text}"
+        if submission is None:
+            raise NoteGenerationError(
+                f"Model completed its turn without calling {SUBMIT_CLINICAL_NOTE_TOOL_NAME}."
+            )
+
+        return _build_output(
+            encounter,
+            submission,
+            requires_clinician_review=self._settings.require_clinician_review,
         )

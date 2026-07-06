@@ -68,6 +68,22 @@ class ClientInstructions(BaseModel):
     warning_signs: list[str] = Field(default_factory=list)
 
 
+class ClinicalNoteDraft(BaseModel):
+    """The model-authored portion of a note.
+
+    Deliberately excludes `encounter_id`, `requires_clinician_review`, and
+    `disclaimer` — those are set by our code, not left to the model to
+    invent. This is also the input schema for the `submit_clinical_note`
+    tool (see tools/submit_note.py): its JSON schema is generated directly
+    from this model so there's one source of truth.
+    """
+
+    soap_note: SoapNote
+    billing_codes: list[BillingCode] = Field(default_factory=list)
+    follow_up: list[FollowUpSuggestion] = Field(default_factory=list)
+    client_instructions: ClientInstructions
+
+
 class ClinicalNoteOutput(BaseModel):
     encounter_id: str
     soap_note: SoapNote

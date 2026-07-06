@@ -3,12 +3,9 @@
 Usage:
     python -m evals.run_evals
 
-For each case under evals/cases/*.yaml, runs the agent and checks the output
-against the case's deterministic assertions. The agent's `generate()` isn't
-implemented yet (see clinical_note_taker/agent.py), so cases currently report
-SKIPPED rather than PASS/FAIL — this harness exists so the eval shape is in
-place before the note-generation logic is built, and CI can flag regressions
-the moment it is.
+For each case under evals/cases/*.yaml, runs the agent for real (requires an
+authenticated Claude Code CLI or ANTHROPIC_API_KEY) and checks the output
+against the case's deterministic assertions.
 
 An LLM-as-judge pass for subjective qualities (completeness, tone) is a
 planned fast-follow, layered on top of these deterministic checks rather
@@ -24,7 +21,7 @@ from pathlib import Path
 
 import yaml
 
-from clinical_note_taker.agent import ClinicalNoteAgent
+from clinical_note_taker.agent import ClinicalNoteAgent, NoteGenerationError
 from clinical_note_taker.models import ClinicalNoteOutput, EncounterInput
 
 from .schema import EvalCase
@@ -77,8 +74,8 @@ async def run_case(case: EvalCase) -> EvalResult:
     )
     try:
         output = await ClinicalNoteAgent().generate(encounter)
-    except NotImplementedError:
-        return EvalResult(case.id, "skipped", ["agent.generate() not implemented yet"])
+    except NoteGenerationError as exc:
+        return EvalResult(case.id, "fail", [str(exc)])
 
     failures = check_output(case, output)
     return EvalResult(case.id, "fail" if failures else "pass", failures)
