@@ -31,8 +31,50 @@ veterinary background:
 - Always include at least one clear "when to seek emergency care" item when
   the visit involves a condition with plausible red-flag symptoms.
 
+## Worked examples
+
+Both drawn from real (synthetic) model runs.
+
+### Example 1: canine, suspected GDV
+
+Plan (input to this skill): emergency radiographs, IV fluids, possible
+emergency surgery tonight, close monitoring.
+
+Expected client instructions:
+
+- **Summary**: "Your dog is showing signs (distended, tight abdomen,
+  retching without bringing anything up, and restlessness) that are very
+  concerning for a condition called gastric dilatation-volvulus (GDV),
+  sometimes called 'bloat.'... We are taking an X-ray right away to confirm
+  this and starting IV fluids to help stabilize him."
+- **Action items**: "Be prepared to discuss and consent to emergency surgery
+  tonight if GDV is confirmed," "Do not offer food or water to your dog
+  until the veterinary team says it is safe to do so."
+- **Warning signs**: "Collapse, extreme weakness, or pale/white gums,"
+  "Rapid, labored breathing or continued unproductive retching."
+
+### Example 2: feline, suspected urethral obstruction
+
+Plan (input to this skill): IV fluids, sedation and urinary catheterization,
+bloodwork, overnight hospitalization.
+
+Expected client instructions (excerpt):
+
+- **Action items**: "Do not offer food or water at home tonight — he will
+  be managed in the hospital," "Once discharged, watch closely for
+  straining or crying in the litter box again — call us immediately if this
+  recurs."
+- **Warning signs**: "Straining to urinate again after treatment," "Crying
+  or vocalizing in pain," "Lethargy or collapse."
+
+Both examples translate clinical detail into plain language without
+inventing anything beyond what the plan stated — no doses or medications
+appear in either example because the source transcripts didn't specify any.
+
 ## TODO before this skill is production-ready
 
+- [x] Add a few worked examples (input plan -> expected instructions) using
+      synthetic vet ER transcripts.
 - [ ] Confirm target reading-level tooling/validation with the product
       owner.
 - [ ] Decide whether instructions should be localized/translated.
