@@ -36,6 +36,41 @@ finding/diagnosis. Each suggestion must include:
 - Always surface the tool's unverified/verified status alongside any code —
   don't strip that caveat out of the final output.
 
+## Worked examples
+
+Both drawn from real (synthetic) model runs, and chosen to show both branches
+of the "no match" constraint above.
+
+### Example 1: snomed_lookup finds a candidate term
+
+Assessment: suspected gastric dilatation-volvulus (GDV) in a dog.
+
+`snomed_lookup("gdv")` returns: *"Gastric dilation-volvulus of dog
+(concept_id=unknown). UNVERIFIED concept ID — do not use for real coding
+until checked against the VTSL SNOMED CT veterinary extension browser."*
+
+Expected billing code entry — the caveat is carried through, not dropped:
+
+> **SNOMED-CT UNVERIFIED** — Gastric dilation-volvulus of dog
+> (suspected/presumptive) — lookup tool returned this candidate term but no
+> valid concept ID; requires verification against the official VTSL SNOMED
+> CT veterinary extension browser before use in billing or records.
+> Diagnosis not yet radiographically confirmed at time of note. (confidence: 25%)
+
+### Example 2: snomed_lookup finds no match
+
+Assessment: suspected feline urethral obstruction with possible secondary
+hyperkalemia. None of `snomed_lookup`'s starter-table terms match "urethral
+obstruction," "stranguria," "bladder distension," or "hyperkalemia."
+
+Expected behavior — no code is fabricated; the finding is reported in plain
+language and explicitly left uncoded:
+
+> Note: No matching SNOMED CT (veterinary extension) concept was found in
+> the local lookup table for urethral obstruction, stranguria, bladder
+> distension, or hyperkalemia; these findings are reported here in plain
+> language and left uncoded rather than assigning an unverified code.
+
 ## TODO before this skill is production-ready
 
 - [ ] Verify (or replace) the starter table's concept IDs against the VTSL
