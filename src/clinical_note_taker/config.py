@@ -30,6 +30,15 @@ class Settings(BaseSettings):
         description="Model used for note generation.",
     )
     max_turns: int = Field(default=8, description="Cap on agent turns per encounter.")
+    max_submission_attempts: int = Field(
+        default=2,
+        ge=1,
+        description=(
+            "How many times the agent will ask the model to (re)submit a note before "
+            "giving up — covers both a missing submission and one that fails schema "
+            "validation. Each retry feeds the specific error back to the model."
+        ),
+    )
     log_level: str = Field(default="INFO")
     redact_pii_in_logs: bool = Field(
         default=True,
