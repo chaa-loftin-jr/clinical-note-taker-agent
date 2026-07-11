@@ -1,0 +1,25 @@
+id: canine_hbc_trauma
+description: >
+  Hit-by-car trauma with signs of possible shock/internal injury. Synthetic
+  transcript — not a real patient encounter.
+species: canine
+visit_type: emergency
+transcript: |
+  Owner: He got loose and was hit by a car about ten minutes ago. He's not
+    putting weight on his back leg and seems really out of it.
+  Vet: His gums are pale and his heart rate is elevated, which makes me
+    worried about internal bleeding or shock. We need X-rays of his chest
+    and abdomen and IV fluids right away. I'll check the back leg once he's
+    stable — it may be fractured, but stabilizing him comes first.
+  Owner: What are you most worried about?
+  Vet: Right now, internal injuries like a ruptured organ or bleeding into
+    the chest are more urgent than the leg. We'll keep him on oxygen and
+    monitor closely tonight.
+
+must_include_assessment_keywords:
+  - "trauma"
+must_include_diagnosis_codes: []
+must_include_instruction_keywords:
+  - "bleeding"
+forbidden_phrases:
+  - "just a limp, nothing serious"

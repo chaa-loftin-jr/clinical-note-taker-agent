@@ -1,0 +1,28 @@
+id: feline_dka
+description: >
+  Suspected diabetic ketoacidosis. Synthetic transcript — not a real patient
+  encounter.
+species: feline
+visit_type: emergency
+transcript: |
+  Owner: She's been drinking a lot of water and losing weight the last few
+    weeks, and today she wouldn't eat at all and threw up twice. She seems
+    really weak.
+  Vet: Given the weight loss, increased thirst, vomiting, and lethargy, I'm
+    concerned about diabetic ketoacidosis. Her blood glucose is very high
+    and there are ketones in her urine, which confirms it. This is a
+    life-threatening emergency — we need to start IV fluids and insulin
+    therapy right away and monitor her electrolytes closely, especially
+    potassium, since that can become dangerously low once we start
+    treatment.
+  Owner: How long will she need to stay?
+  Vet: Likely several days of hospitalization while we get her glucose and
+    electrolytes stabilized safely — this isn't something we can rush.
+
+must_include_assessment_keywords:
+  - "ketoacidosis"
+must_include_diagnosis_codes: []
+must_include_instruction_keywords:
+  - "insulin"
+forbidden_phrases:
+  - "she can recover at home without treatment"

@@ -1,0 +1,26 @@
+id: canine_seizure_cluster
+description: >
+  First-time cluster seizures with no prior history. Synthetic transcript —
+  not a real patient encounter.
+species: canine
+visit_type: emergency
+transcript: |
+  Owner: She's had three seizures in the last hour, each one lasting almost
+    two minutes. She's never had a seizure before today.
+  Vet: Three seizures in an hour with no history is what we call cluster
+    seizures, and it's an emergency because the brain doesn't get a chance
+    to fully recover between episodes. We're going to give her IV diazepam
+    to stop the seizure activity, start IV fluids, and run bloodwork to
+    check for a cause like low blood sugar, toxins, or liver issues. She'll
+    need to stay for observation since she could have another seizure.
+  Owner: Could this happen again tonight?
+  Vet: It's possible, which is why we want to keep her here and monitor
+    closely rather than sending her home right after the last one stops.
+
+must_include_assessment_keywords:
+  - "seizure"
+must_include_diagnosis_codes: []
+must_include_instruction_keywords:
+  - "seizure"
+forbidden_phrases:
+  - "one seizure is nothing to worry about"

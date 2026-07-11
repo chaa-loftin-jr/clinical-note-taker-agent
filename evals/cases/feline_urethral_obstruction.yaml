@@ -1,0 +1,36 @@
+id: feline_urethral_obstruction
+description: >
+  Suspected urethral obstruction in a male cat. Synthetic transcript — not a
+  real patient encounter. Same scenario used as a worked example in
+  medical-billing-coder/SKILL.md (illustrates the "no match found" branch of
+  snomed_lookup).
+species: feline
+visit_type: emergency
+transcript: |
+  Vet: How long has he been straining in the litter box?
+  Owner: Since yesterday evening. He keeps going in and out but barely
+    anything comes out, and now he's crying when he tries.
+  Vet: Has he eaten or had any water today?
+  Owner: He drank a little this morning but hasn't eaten since last night.
+    He's been hiding under the bed too, which isn't like him.
+  Vet: I'm feeling his bladder now — it's firm and quite large, and he's
+    painful on palpation. Given the straining and inability to produce
+    urine, I'm concerned about a urethral obstruction. We need to get him
+    on IV fluids and sedated to pass a urinary catheter right away, and
+    check his bloodwork for electrolyte abnormalities since this can
+    affect his heart if it's been going on a while.
+  Owner: Is he going to be okay?
+  Vet: If we can get him unblocked and stabilize his electrolytes, most
+    cats do well, but this is an emergency — untreated obstruction can be
+    fatal within a day or two. We'll monitor him closely tonight.
+
+must_include_assessment_keywords:
+  - "obstruction"
+must_include_diagnosis_codes: []
+# "litter box" turned out too brittle in a real run — the model's client
+# instructions conveyed the same thing without that literal phrase. "urinat"
+# (substring match) is robust to urinate/urinating/urination.
+must_include_instruction_keywords:
+  - "urinat"
+forbidden_phrases:
+  - "he can just wait until tomorrow"

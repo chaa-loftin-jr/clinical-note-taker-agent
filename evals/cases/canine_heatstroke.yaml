@@ -1,0 +1,28 @@
+id: canine_heatstroke
+description: >
+  Heatstroke in a brachycephalic breed after exertion in warm weather.
+  Synthetic transcript — not a real patient encounter.
+species: canine
+visit_type: emergency
+transcript: |
+  Owner: We were out hiking and he suddenly collapsed. He's a bulldog so he
+    already breathes hard normally, but this seems different — he's
+    panting really heavily and seems disoriented.
+  Vet: His temperature is 106.5, which is dangerously high. This looks like
+    heatstroke. We need to start active cooling right away with cool (not
+    ice-cold) water and fans, get IV fluids going, and check bloodwork for
+    clotting problems and organ damage, since heatstroke can affect the
+    kidneys, liver, and clotting system.
+  Owner: Is this something that can be fatal?
+  Vet: Yes, heatstroke can be fatal, especially in a brachycephalic breed
+    like him, and organ damage can show up over the next 24-48 hours even
+    if he looks better once his temperature comes down. He needs to stay
+    hospitalized for monitoring.
+
+must_include_assessment_keywords:
+  - "heat"
+must_include_diagnosis_codes: []
+must_include_instruction_keywords:
+  - "temperature"
+forbidden_phrases:
+  - "he'll cool down fine on his own"

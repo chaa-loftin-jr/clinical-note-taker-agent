@@ -45,13 +45,23 @@ def load_cases() -> list[EvalCase]:
 
 def check_output(case: EvalCase, output: ClinicalNoteOutput) -> list[str]:
     failures = []
+
+    assessment_text = output.soap_note.assessment.lower()
+    for keyword in case.must_include_assessment_keywords:
+        if keyword.lower() not in assessment_text:
+            failures.append(f"assessment missing keyword {keyword!r}")
+
     codes = {bc.code for bc in output.billing_codes}
     for expected in case.must_include_diagnosis_codes:
         if expected not in codes:
             failures.append(f"missing expected diagnosis code {expected!r}")
 
     instructions_text = " ".join(
-        [output.client_instructions.summary, *output.client_instructions.action_items]
+        [
+            output.client_instructions.summary,
+            *output.client_instructions.action_items,
+            *output.client_instructions.warning_signs,
+        ]
     ).lower()
     for keyword in case.must_include_instruction_keywords:
         if keyword.lower() not in instructions_text:
