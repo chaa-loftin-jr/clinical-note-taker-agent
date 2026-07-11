@@ -171,12 +171,19 @@ async def test_generate_threads_require_clinician_review_setting(monkeypatch):
     assert output.requires_clinician_review is False
 
 
-async def test_generate_raises_on_duplicate_submission(monkeypatch):
-    submit_message = _submission_message(VALID_SUBMISSION)
-    _patch_client(monkeypatch, [[submit_message, submit_message]])
+async def test_generate_uses_the_latest_of_multiple_submissions_in_one_turn(monkeypatch):
+    # Empirically common (see eval runs) — the model revising its own answer
+    # mid-turn, not malfunctioning. The last call should win, not error.
+    revised_submission = {**VALID_SUBMISSION, "soap_note": {**VALID_SUBMISSION["soap_note"]}}
+    revised_submission["soap_note"]["assessment"] = "Revised: suspected pancreatitis."
 
-    with pytest.raises(NoteGenerationError):
-        await ClinicalNoteAgent(Settings()).generate(_encounter())
+    _patch_client(
+        monkeypatch,
+        [[_submission_message(VALID_SUBMISSION), _submission_message(revised_submission)]],
+    )
+
+    output = await ClinicalNoteAgent(Settings()).generate(_encounter())
+    assert output.soap_note.assessment == "Revised: suspected pancreatitis."
 
 
 async def test_generate_retries_after_missing_submission_then_succeeds(monkeypatch):

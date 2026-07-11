@@ -59,12 +59,9 @@ draft. Do not describe the note in your own text response — the tool call is t
 class NoteGenerationError(RuntimeError):
     """Raised when the model fails to produce a valid note.
 
-    Covers two cases: the model's turn ends without calling
-    `submit_clinical_note` at all, or it calls the tool more than once (a
-    duplicate call fails immediately, without a retry — see
-    `_collect_submission`). A missing or schema-invalid submission is
-    retried up to `Settings.max_submission_attempts` times, feeding the
-    specific error back to the model, before this is raised for good.
+    A missing or schema-invalid submission is retried up to
+    `Settings.max_submission_attempts` times, feeding the specific error
+    back to the model, before this is raised for good.
     """
 
 
@@ -114,20 +111,16 @@ def _find_submission(message: AssistantMessage) -> dict[str, object] | None:
 async def _collect_submission(client: ClaudeSDKClient) -> dict[str, object] | None:
     """Drain one turn's worth of messages, returning the submitted draft, if any.
 
-    A duplicate call within the same turn fails immediately rather than being
-    retried — the model contradicting "exactly once" mid-turn isn't the kind
-    of mistake more prompting is likely to fix.
+    If the model calls `submit_clinical_note` more than once in the same
+    turn, the *last* call wins. Empirically (see eval runs) this is common —
+    the model revising its own answer mid-turn rather than malfunctioning —
+    so it's treated the same as a human re-submitting a form, not an error.
     """
     submission: dict[str, object] | None = None
     async for message in client.receive_response():
         if isinstance(message, AssistantMessage):
             found = _find_submission(message)
             if found is not None:
-                if submission is not None:
-                    raise NoteGenerationError(
-                        f"Model called {SUBMIT_CLINICAL_NOTE_TOOL_NAME} more than "
-                        "once; expected exactly one submission."
-                    )
                 submission = found
     return submission
 
