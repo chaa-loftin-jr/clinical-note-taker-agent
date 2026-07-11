@@ -38,9 +38,24 @@ VALID_SUBMISSION = {
     },
 }
 
+INVALID_SUBMISSION = {"soap_note": "not a dict"}
+
 
 def _encounter() -> EncounterInput:
     return EncounterInput(encounter_id="enc-1", species="canine", transcript="...")
+
+
+def _submission_message(payload: dict[str, object]) -> AssistantMessage:
+    return AssistantMessage(
+        content=[
+            ToolUseBlock(id="1", name="mcp__clinical_tools__submit_clinical_note", input=payload)
+        ],
+        model="claude",
+    )
+
+
+def _text_message(text: str) -> AssistantMessage:
+    return AssistantMessage(content=[TextBlock(text=text)], model="claude")
 
 
 def test_build_options_disables_builtin_tools():
@@ -63,7 +78,7 @@ def test_build_options_enables_expected_skills():
 
 
 def test_find_submission_returns_none_when_absent():
-    message = AssistantMessage(content=[TextBlock(text="working on it...")], model="claude")
+    message = _text_message("working on it...")
     assert _find_submission(message) is None
 
 
@@ -78,14 +93,7 @@ def test_find_submission_ignores_other_tool_calls():
 
 
 def test_find_submission_extracts_matching_tool_call():
-    message = AssistantMessage(
-        content=[
-            ToolUseBlock(
-                id="1", name="mcp__clinical_tools__submit_clinical_note", input=VALID_SUBMISSION
-            )
-        ],
-        model="claude",
-    )
+    message = _submission_message(VALID_SUBMISSION)
     assert _find_submission(message) == VALID_SUBMISSION
 
 
@@ -103,15 +111,22 @@ def test_build_output_respects_requires_clinician_review_false():
 
 def test_build_output_rejects_invalid_submission():
     with pytest.raises(ValueError):
-        _build_output(_encounter(), {"soap_note": "not a dict"}, requires_clinician_review=True)
+        _build_output(_encounter(), INVALID_SUBMISSION, requires_clinician_review=True)
 
 
 class _FakeClient:
     """Stands in for ClaudeSDKClient so generate()'s control flow can be
-    tested without a live model call."""
+    tested without a live model call.
 
-    def __init__(self, messages):
-        self._messages = messages
+    Takes a list of message *batches* — one batch per expected query() call
+    (the first for the initial prompt, subsequent ones for each retry
+    follow-up). Running out of batches (e.g. more retries than provided)
+    yields an empty response, matching a model that goes silent.
+    """
+
+    def __init__(self, message_batches: list[list[AssistantMessage]]):
+        self._remaining_batches = list(message_batches)
+        self._current_batch: list[AssistantMessage] = []
 
     async def __aenter__(self):
         return self
@@ -120,35 +135,28 @@ class _FakeClient:
         return False
 
     async def query(self, prompt):
-        pass
+        self._current_batch = self._remaining_batches.pop(0) if self._remaining_batches else []
 
     async def receive_response(self):
-        for message in self._messages:
+        for message in self._current_batch:
             yield message
 
 
-async def test_generate_raises_without_a_submission(monkeypatch):
-    no_submission = [AssistantMessage(content=[TextBlock(text="thinking...")], model="claude")]
-    monkeypatch.setattr(agent_module, "ClaudeSDKClient", lambda options: _FakeClient(no_submission))
+def _patch_client(monkeypatch, message_batches: list[list[AssistantMessage]]) -> None:
+    monkeypatch.setattr(
+        agent_module, "ClaudeSDKClient", lambda options: _FakeClient(message_batches)
+    )
+
+
+async def test_generate_raises_after_exhausting_attempts_without_a_submission(monkeypatch):
+    _patch_client(monkeypatch, [[_text_message("thinking...")]])
 
     with pytest.raises(NoteGenerationError):
         await ClinicalNoteAgent(Settings()).generate(_encounter())
 
 
 async def test_generate_returns_validated_output_on_submission(monkeypatch):
-    messages = [
-        AssistantMessage(
-            content=[
-                ToolUseBlock(
-                    id="1",
-                    name="mcp__clinical_tools__submit_clinical_note",
-                    input=VALID_SUBMISSION,
-                )
-            ],
-            model="claude",
-        )
-    ]
-    monkeypatch.setattr(agent_module, "ClaudeSDKClient", lambda options: _FakeClient(messages))
+    _patch_client(monkeypatch, [[_submission_message(VALID_SUBMISSION)]])
 
     output = await ClinicalNoteAgent(Settings()).generate(_encounter())
     assert output.encounter_id == "enc-1"
@@ -156,41 +164,76 @@ async def test_generate_returns_validated_output_on_submission(monkeypatch):
 
 
 async def test_generate_threads_require_clinician_review_setting(monkeypatch):
-    messages = [
-        AssistantMessage(
-            content=[
-                ToolUseBlock(
-                    id="1",
-                    name="mcp__clinical_tools__submit_clinical_note",
-                    input=VALID_SUBMISSION,
-                )
-            ],
-            model="claude",
-        )
-    ]
-    monkeypatch.setattr(agent_module, "ClaudeSDKClient", lambda options: _FakeClient(messages))
+    _patch_client(monkeypatch, [[_submission_message(VALID_SUBMISSION)]])
 
     settings = Settings(require_clinician_review=False)
     output = await ClinicalNoteAgent(settings).generate(_encounter())
     assert output.requires_clinician_review is False
 
 
-async def test_generate_raises_on_duplicate_submission(monkeypatch):
-    submit_message = AssistantMessage(
-        content=[
-            ToolUseBlock(
-                id="1",
-                name="mcp__clinical_tools__submit_clinical_note",
-                input=VALID_SUBMISSION,
-            )
-        ],
-        model="claude",
-    )
-    monkeypatch.setattr(
-        agent_module,
-        "ClaudeSDKClient",
-        lambda options: _FakeClient([submit_message, submit_message]),
+async def test_generate_uses_the_latest_of_multiple_submissions_in_one_turn(monkeypatch):
+    # Empirically common (see eval runs) — the model revising its own answer
+    # mid-turn, not malfunctioning. The last call should win, not error.
+    revised_submission = {**VALID_SUBMISSION, "soap_note": {**VALID_SUBMISSION["soap_note"]}}
+    revised_submission["soap_note"]["assessment"] = "Revised: suspected pancreatitis."
+
+    _patch_client(
+        monkeypatch,
+        [[_submission_message(VALID_SUBMISSION), _submission_message(revised_submission)]],
     )
 
-    with pytest.raises(NoteGenerationError):
+    output = await ClinicalNoteAgent(Settings()).generate(_encounter())
+    assert output.soap_note.assessment == "Revised: suspected pancreatitis."
+
+
+async def test_generate_retries_after_missing_submission_then_succeeds(monkeypatch):
+    _patch_client(
+        monkeypatch,
+        [
+            [_text_message("still working...")],
+            [_submission_message(VALID_SUBMISSION)],
+        ],
+    )
+
+    output = await ClinicalNoteAgent(Settings()).generate(_encounter())
+    assert output.soap_note.assessment == "Suspected gastroenteritis."
+
+
+async def test_generate_retries_after_invalid_submission_then_succeeds(monkeypatch):
+    _patch_client(
+        monkeypatch,
+        [
+            [_submission_message(INVALID_SUBMISSION)],
+            [_submission_message(VALID_SUBMISSION)],
+        ],
+    )
+
+    output = await ClinicalNoteAgent(Settings()).generate(_encounter())
+    assert output.soap_note.assessment == "Suspected gastroenteritis."
+
+
+async def test_generate_raises_after_exhausting_attempts_on_repeated_invalid_submission(
+    monkeypatch,
+):
+    _patch_client(
+        monkeypatch,
+        [
+            [_submission_message(INVALID_SUBMISSION)],
+            [_submission_message(INVALID_SUBMISSION)],
+        ],
+    )
+
+    with pytest.raises(NoteGenerationError) as exc_info:
         await ClinicalNoteAgent(Settings()).generate(_encounter())
+    assert exc_info.value.__cause__ is not None
+
+
+async def test_generate_respects_max_submission_attempts_setting(monkeypatch):
+    # Only one batch provided; with max_submission_attempts=1 there should be
+    # no retry query() call at all, so the second (nonexistent) batch is never
+    # needed — confirms the setting actually bounds the loop.
+    _patch_client(monkeypatch, [[_text_message("thinking...")]])
+
+    settings = Settings(max_submission_attempts=1)
+    with pytest.raises(NoteGenerationError):
+        await ClinicalNoteAgent(settings).generate(_encounter())
