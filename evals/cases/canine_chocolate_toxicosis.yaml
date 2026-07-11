@@ -1,0 +1,25 @@
+id: canine_chocolate_toxicosis
+description: >
+  Recent ingestion of dark chocolate in a small dog. Synthetic transcript —
+  not a real patient encounter.
+species: canine
+visit_type: emergency
+transcript: |
+  Owner: I just found an empty bag of dark chocolate baking chips — she must
+    have gotten into it about 20 minutes ago. She's maybe 15 pounds.
+  Vet: Dark chocolate is one of the more dangerous kinds. Given her weight
+    and how recently this happened, we're going to induce vomiting right
+    away, then give activated charcoal to help bind any remaining toxin.
+    We'll also start IV fluids and watch her heart rate closely, since
+    chocolate toxicity can cause tremors and arrhythmias.
+  Owner: Is she going to be okay?
+  Vet: Because you caught it fast, her chances are good. We'll monitor her
+    for several hours for tremors, elevated heart rate, or agitation.
+
+must_include_assessment_keywords:
+  - "chocolate"
+must_include_diagnosis_codes: []
+must_include_instruction_keywords:
+  - "tremor"
+forbidden_phrases:
+  - "a small amount is fine"

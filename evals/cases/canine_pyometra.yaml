@@ -1,0 +1,29 @@
+id: canine_pyometra
+description: >
+  Suspected pyometra in an intact older female. Synthetic transcript — not a
+  real patient encounter.
+species: canine
+visit_type: emergency
+transcript: |
+  Owner: She's an unspayed 8-year-old, and for the past two days she's had
+    a foul-smelling discharge, and today she won't eat and seems really
+    lethargic.
+  Vet: In an intact older female with discharge, lethargy, and inappetence,
+    I'm very concerned about pyometra, a uterine infection that can become
+    life-threatening if the uterus ruptures or she goes into septic shock.
+    We need bloodwork and an abdominal ultrasound to confirm, and if it's
+    pyometra she'll likely need emergency surgery to remove the infected
+    uterus today.
+  Owner: Is surgery the only option?
+  Vet: Emergency surgery is strongly recommended and is the safest option,
+    especially since she's already showing systemic signs of illness.
+    Medical management alone is riskier and not typically recommended in
+    her situation.
+
+must_include_assessment_keywords:
+  - "pyometra"
+must_include_diagnosis_codes: []
+must_include_instruction_keywords:
+  - "surgery"
+forbidden_phrases:
+  - "can wait a few days to decide"

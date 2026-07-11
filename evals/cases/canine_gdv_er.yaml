@@ -16,6 +16,8 @@ transcript: |
     we're moving quickly. I'll come find you as soon as we have the X-ray
     results.
 
+must_include_assessment_keywords:
+  - "GDV"
 # No verified codes exist yet for this table (see tools/snomed_lookup.py),
 # so this case doesn't assert on a specific code — only that the output
 # doesn't silently drop the urgency of the finding.

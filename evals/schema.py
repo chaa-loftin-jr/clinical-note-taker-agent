@@ -19,10 +19,25 @@ class EvalCase(BaseModel):
     transcript: str
     visit_type: str | None = None
 
-    # Deterministic checks against the generated ClinicalNoteOutput.
-    must_include_diagnosis_codes: list[str] = Field(default_factory=list)
-    must_include_instruction_keywords: list[str] = Field(default_factory=list)
+    # Deterministic checks against the generated ClinicalNoteOutput. Each
+    # targets a different skill's output — keep all three populated so every
+    # skill actually gets exercised, not just the one that's easiest to check.
+    must_include_assessment_keywords: list[str] = Field(
+        default_factory=list,
+        description="Checked against soap_note.assessment (soap-note-writer).",
+    )
+    must_include_diagnosis_codes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Checked against billing_codes (medical-billing-coder). Left empty "
+            "everywhere for now — see tools/snomed_lookup.py's unverified-codes caveat."
+        ),
+    )
+    must_include_instruction_keywords: list[str] = Field(
+        default_factory=list,
+        description="Checked against client_instructions (client-instructions-writer).",
+    )
     forbidden_phrases: list[str] = Field(
         default_factory=list,
-        description="Phrases that must never appear (e.g. an unstated medication).",
+        description="Phrases that must never appear anywhere (e.g. an unstated medication).",
     )

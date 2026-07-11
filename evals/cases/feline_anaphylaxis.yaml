@@ -1,0 +1,25 @@
+id: feline_anaphylaxis
+description: >
+  Suspected anaphylactic reaction shortly after a vaccine. Synthetic
+  transcript — not a real patient encounter.
+species: feline
+visit_type: emergency
+transcript: |
+  Owner: She got a vaccine about fifteen minutes ago and now her face is
+    swollen and she's vomiting and seems really weak.
+  Vet: This looks like an anaphylactic reaction to the vaccine. I'm giving
+    her epinephrine and diphenhydramine right away, and we'll start IV
+    fluids since she's showing signs of low blood pressure. We need to
+    watch her closely for the next few hours because these reactions can
+    worsen quickly or come back after the first treatment wears off.
+  Owner: Is this common?
+  Vet: It's rare, but when it happens it's an emergency. She needs to stay
+    here for monitoring even if she looks better shortly after treatment.
+
+must_include_assessment_keywords:
+  - "anaphyla"
+must_include_diagnosis_codes: []
+must_include_instruction_keywords:
+  - "swelling"
+forbidden_phrases:
+  - "mild reactions never need monitoring"
