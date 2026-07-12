@@ -228,6 +228,24 @@ async def test_generate_raises_after_exhausting_attempts_on_repeated_invalid_sub
     assert exc_info.value.__cause__ is not None
 
 
+async def test_generate_chains_the_true_last_error_across_mixed_failure_modes(monkeypatch):
+    # Attempt 1 fails with a ValidationError, attempt 2 with a missing
+    # submission — the final __cause__ should reflect attempt 2 (the real
+    # last failure), not the stale ValidationError from attempt 1.
+    _patch_client(
+        monkeypatch,
+        [
+            [_submission_message(INVALID_SUBMISSION)],
+            [_text_message("still working...")],
+        ],
+    )
+
+    with pytest.raises(NoteGenerationError) as exc_info:
+        await ClinicalNoteAgent(Settings()).generate(_encounter())
+    assert isinstance(exc_info.value.__cause__, NoteGenerationError)
+    assert "attempt 2" in str(exc_info.value.__cause__)
+
+
 async def test_generate_respects_max_submission_attempts_setting(monkeypatch):
     # Only one batch provided; with max_submission_attempts=1 there should be
     # no retry query() call at all, so the second (nonexistent) batch is never

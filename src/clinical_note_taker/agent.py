@@ -171,6 +171,9 @@ class ClinicalNoteAgent:
                             "Call it again with corrected arguments."
                         )
                 else:
+                    last_error = NoteGenerationError(
+                        f"Model didn't call {SUBMIT_CLINICAL_NOTE_TOOL_NAME} on attempt {attempt}."
+                    )
                     feedback = (
                         f"You didn't call {SUBMIT_CLINICAL_NOTE_TOOL_NAME}. Call it now with "
                         "the complete draft."
