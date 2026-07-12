@@ -13,7 +13,9 @@ Output contract: the model doesn't return its answer as free text. It must
 call the `submit_clinical_note` tool exactly once, as its final action, with
 arguments matching `ClinicalNoteDraft`. We read the finished draft straight
 out of that tool call's arguments rather than parsing JSON out of prose —
-see tools/submit_note.py for why.
+see tools/submit_note.py for why. A missing or schema-invalid submission is
+retried, feeding the specific error back to the model, up to
+`Settings.max_submission_attempts` times before failing.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from claude_agent_sdk import (
     ToolUseBlock,
     create_sdk_mcp_server,
 )
+from pydantic import ValidationError
 
 from .config import AGENT_WORKSPACE, Settings, get_settings
 from .models import ClinicalNoteDraft, ClinicalNoteOutput, EncounterInput
@@ -54,11 +57,11 @@ draft. Do not describe the note in your own text response — the tool call is t
 
 
 class NoteGenerationError(RuntimeError):
-    """Raised when the model completes its turn without submitting a note.
+    """Raised when the model fails to produce a valid note.
 
-    Deliberately not retried here — that's future work (see the "Handle
-    malformed or incomplete model output gracefully" issue). For now, a
-    missing submission fails loudly rather than returning nothing.
+    A missing or schema-invalid submission is retried up to
+    `Settings.max_submission_attempts` times, feeding the specific error
+    back to the model, before this is raised for good.
     """
 
 
@@ -105,6 +108,23 @@ def _find_submission(message: AssistantMessage) -> dict[str, object] | None:
     return None
 
 
+async def _collect_submission(client: ClaudeSDKClient) -> dict[str, object] | None:
+    """Drain one turn's worth of messages, returning the submitted draft, if any.
+
+    If the model calls `submit_clinical_note` more than once in the same
+    turn, the *last* call wins. Empirically (see eval runs) this is common —
+    the model revising its own answer mid-turn rather than malfunctioning —
+    so it's treated the same as a human re-submitting a form, not an error.
+    """
+    submission: dict[str, object] | None = None
+    async for message in client.receive_response():
+        if isinstance(message, AssistantMessage):
+            found = _find_submission(message)
+            if found is not None:
+                submission = found
+    return submission
+
+
 def _build_output(
     encounter: EncounterInput, submission: dict[str, object], *, requires_clinician_review: bool
 ) -> ClinicalNoteOutput:
@@ -125,28 +145,43 @@ class ClinicalNoteAgent:
     async def generate(self, encounter: EncounterInput) -> ClinicalNoteOutput:
         options = _build_options(self._settings)
         prompt = _build_prompt(encounter)
+        max_attempts = self._settings.max_submission_attempts
 
-        submission: dict[str, object] | None = None
+        last_error: Exception = NoteGenerationError(
+            f"Model completed its turn without calling {SUBMIT_CLINICAL_NOTE_TOOL_NAME}."
+        )
+
         async with ClaudeSDKClient(options=options) as client:
             await client.query(prompt)
-            async for message in client.receive_response():
-                if isinstance(message, AssistantMessage):
-                    found = _find_submission(message)
-                    if found is not None:
-                        if submission is not None:
-                            raise NoteGenerationError(
-                                f"Model called {SUBMIT_CLINICAL_NOTE_TOOL_NAME} more than "
-                                "once; expected exactly one submission."
-                            )
-                        submission = found
 
-        if submission is None:
-            raise NoteGenerationError(
-                f"Model completed its turn without calling {SUBMIT_CLINICAL_NOTE_TOOL_NAME}."
-            )
+            for attempt in range(1, max_attempts + 1):
+                submission = await _collect_submission(client)
 
-        return _build_output(
-            encounter,
-            submission,
-            requires_clinician_review=self._settings.require_clinician_review,
-        )
+                if submission is not None:
+                    try:
+                        return _build_output(
+                            encounter,
+                            submission,
+                            requires_clinician_review=self._settings.require_clinician_review,
+                        )
+                    except ValidationError as exc:
+                        last_error = exc
+                        feedback = (
+                            f"Your {SUBMIT_CLINICAL_NOTE_TOOL_NAME} call was invalid: {exc} "
+                            "Call it again with corrected arguments."
+                        )
+                else:
+                    last_error = NoteGenerationError(
+                        f"Model didn't call {SUBMIT_CLINICAL_NOTE_TOOL_NAME} on attempt {attempt}."
+                    )
+                    feedback = (
+                        f"You didn't call {SUBMIT_CLINICAL_NOTE_TOOL_NAME}. Call it now with "
+                        "the complete draft."
+                    )
+
+                if attempt < max_attempts:
+                    await client.query(feedback)
+
+        raise NoteGenerationError(
+            f"Model failed to submit a valid note after {max_attempts} attempt(s)."
+        ) from last_error

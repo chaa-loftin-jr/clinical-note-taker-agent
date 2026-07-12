@@ -11,8 +11,9 @@ pieces rather than one large prompt.
 > [!IMPORTANT]
 > **Project status: core pipeline works, but output isn't trustworthy yet.**
 > `ClinicalNoteAgent.generate()` produces real, schema-validated notes end to
-> end. The gap is what's *in* them: SNOMED CT codes are unverified, there's
-> no malformed-output handling, and eval coverage is minimal. See
+> end, retrying a missing or schema-invalid submission before giving up. The
+> gap is what's *in* them: SNOMED CT codes are unverified and eval coverage
+> is minimal. See
 > [Known Limitations & Roadmap](#known-limitations--roadmap) before treating
 > any generated output as reliable. Also see [Domain Scope &
 > Terminology](#domain-scope--terminology): this project targets veterinary
@@ -179,7 +180,8 @@ Settings are loaded from environment variables (or a `.env` file) with a
 |---|---|---|
 | `ANTHROPIC_API_KEY` | — | Only needed if the bundled Claude Code CLI isn't already authenticated via `claude login` |
 | `CNT_ANTHROPIC_MODEL` | `claude-sonnet-5` | Model used for note generation |
-| `CNT_MAX_TURNS` | `8` | Cap on agent turns per encounter |
+| `CNT_MAX_TURNS` | `8` | Cap on agent turns per encounter, for the whole session (retries share this budget) |
+| `CNT_MAX_SUBMISSION_ATTEMPTS` | `2` | How many times to ask the model to (re)submit a note before giving up |
 | `CNT_LOG_LEVEL` | `INFO` | Logging verbosity |
 | `CNT_REDACT_PII_IN_LOGS` | `true` | Scrub likely client (owner) PII before anything is logged |
 | `CNT_REQUIRE_CLINICIAN_REVIEW` | `true` | Tag every generated note as a draft requiring veterinarian sign-off |
@@ -218,11 +220,15 @@ terms are used precisely and matter for anyone extending this:
 
 ## Known limitations & roadmap
 
-- **No malformed-output handling.** The model must call `submit_clinical_note`
-  as its final action; if it doesn't (or the arguments fail schema
-  validation), `generate()` raises `NoteGenerationError`/`ValueError` rather
-  than retrying or repairing. Deliberately out of scope for now — see the
-  "Handle malformed or incomplete model output gracefully" issue.
+- **Duplicate-submission handling is a judgment call, not a guarantee.** If
+  the model calls `submit_clinical_note` more than once in one turn, the
+  *last* call wins — treated as the model revising its own answer (this was
+  empirically common in real eval runs, not the rare case it was first
+  assumed to be). A missing or schema-invalid submission is retried up to
+  `CNT_MAX_SUBMISSION_ATTEMPTS` times before `generate()` raises
+  `NoteGenerationError`. Retries share the same `CNT_MAX_TURNS` budget as the
+  rest of the session — not yet reconciled or tested for what happens if a
+  low `max_turns` is hit mid-retry.
 - **SNOMED CT codes are unverified.** `tools/snomed_lookup.py` ships a small,
   hand-picked table of common ER presentations with `concept_id=None` —
   real IDs require registering with the [VTSL browser](https://vtsl.vetmed.vt.edu/)
