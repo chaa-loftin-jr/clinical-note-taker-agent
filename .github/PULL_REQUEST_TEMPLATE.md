@@ -1,44 +1,24 @@
+## Identifier
+
+<!-- Issue #, Jira ticket #, or other tracking reference. Delete whichever doesn't apply. -->
+Closes #
+<!-- Jira: PROJ-123 -->
+
+## Semantic commit
+
+<!-- One line, conventional-commit style, summarizing this PR as it should read in history -->
+<!-- e.g. feat(agent): add retry logic for malformed submissions -->
+
 ## Description
 
-<!-- Briefly describe what this PR does and why -->
-
-## Changes
-
-- 
-- 
-- 
-
-## Related Issues
-
-Closes #<!-- issue number -->
-
-## Type of Change
-
-- [ ] ✨ New feature
-- [ ] 🐛 Bug fix
-- [ ] ♻️ Refactor
-- [ ] 📝 Documentation
-- [ ] 🧪 Test
-- [ ] ⚡ Performance
+<!-- What does this change do, and why? Link context a reviewer wouldn't otherwise have. -->
 
 ## Testing
 
-- [ ] Tested locally
-- [ ] Added/updated tests
-- [ ] Ran full test suite
+<!-- How do you know this works? Prefer real evidence over a checklist — command output, a
+     real end-to-end run, the actual eval harness result — over "tested locally". -->
 
-## Screenshots / Demo
-
-<!-- Add screenshots or recordings if applicable -->
-
-## Checklist
-
-- [ ] Code follows project conventions
-- [ ] Self-reviewed the code
-- [ ] Added comments where needed
-- [ ] Updated documentation if necessary
-- [ ] No breaking changes (or clearly documented)
-
-## Notes for Reviewers
-
-<!-- Any special instructions or areas to focus on? -->
+- [ ] `uv run pytest` passes
+- [ ] `uv run ruff check . && uv run mypy src` clean
+- [ ] Verified against real behavior (not just unit tests) where the change touches generation
+      logic, prompts, or skills — paste the actual output
