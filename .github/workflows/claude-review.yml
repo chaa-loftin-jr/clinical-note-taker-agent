@@ -1,0 +1,51 @@
+name: Claude Code Review
+
+# Runs the code-review-standards skill (.claude/skills/code-review-standards/)
+# against every PR push. This is the self-hosted GitHub Actions integration
+# (anthropics/claude-code-action), not Anthropic's managed Code Review
+# service — that one lives entirely in claude.ai admin settings, requires a
+# Team/Enterprise Claude org, and has no workflow file to configure.
+#
+# Setup required before this does anything: add ANTHROPIC_API_KEY as a repo
+# secret (Settings -> Secrets and variables -> Actions -> New repository
+# secret). Nothing else to configure.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            /code-review-standards
+
+            Review pull request #${{ github.event.pull_request.number }} in
+            ${{ github.repository }} against the code-review-standards
+            skill's criteria: clean code, readability, extensibility,
+            anti-patterns, with every claim verified against the actual
+            code before it's written down.
+
+            Post your findings as a single PR review (inline comments where
+            the diff allows it, a summary comment otherwise). End with an
+            explicit verdict: Approve, Approve with nits, or Request
+            changes.
+          claude_args: "--max-turns 15"

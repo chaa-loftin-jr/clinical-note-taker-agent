@@ -170,6 +170,12 @@ calls and needs `ANTHROPIC_API_KEY` — deliberately not run automatically in
 CI) run automatically in CI on every pull request —
 see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
+Every PR push also gets an automated review from Claude against this repo's
+own [`code-review-standards`](.claude/skills/code-review-standards/SKILL.md)
+skill — see [`.github/workflows/claude-review.yml`](.github/workflows/claude-review.yml).
+Requires an `ANTHROPIC_API_KEY` repository secret; posts findings as a PR
+review, doesn't block merging.
+
 ## Configuration
 
 Settings are loaded from environment variables (or a `.env` file) with a
